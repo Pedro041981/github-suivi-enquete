@@ -1,0 +1,444 @@
+---
+title: "Haiti - MSNA 2022 - Suivi de collecte"
+output: html_document
+#runtime: shiny
+flexdashboard::flex_dashboard:
+#orientation: column
+  vertical_layout: fill
+---
+
+```{r}
+# Time zone for windows
+Sys.setenv(TZ = "America/Port-au-Prince")
+Sys.setenv(LANGUAGE = "fr")
+```
+
+```{r setup, include=FALSE}
+# library(ggplot2)
+library(knitr)
+library(impactR)
+library(visualizeR)
+library(dplyr)
+library(reactable)
+library(here)
+library(shiny)
+library(flexdashboard)
+library(sf)
+
+library(data.table)
+library(tidyverse)
+library(janitor)
+library(magrittr)
+library(htmltools)
+library(leaflet)
+library(DT)
+library(stringr)
+library(tidyr)
+library(scales)
+library(formattable)
+library(leaflet)
+
+# library(janitor)
+# library(dplyr)
+# library(htmltools)
+# library(flexdashboard)
+# library(sf)
+# library(leaflet)
+# library(DT)
+# library(shiny)
+# library(stringr)
+# library(tidyr)
+# library(scales)
+# library(formattable)
+
+
+knitr::opts_chunk$set(warning = FALSE, error = F, message = F)
+```
+
+```{r, include = F}
+load(here::here(paste0("output/r_output/r_output_2022-06-27.rda")))
+```
+
+# Présentation
+
+## Column {.sidebar data-width="350"}
+
+**Introduction**
+
+Dans le cadre de l'Evaluation multisectorielle des besoins (MSNA) 2022, ce *dashboard* permet de suivre globalement la qualité des données et la réalisation de l'échantillon.
+
+Cette enquête visait à évaluer les besoins multisectoriels des ménages déplacés et non déplacés dans toutes les departement Haiti.
+
+**Nombre d'enquête totale réalisées**
+
+```{r}
+
+point_fait <- read.csv("data/suivi_2022.csv")
+
+point_fait_pivot <- point_fait %>% 
+  dplyr::group_by(departement) %>% 
+  dplyr::summarize(survey_realized = sum(survey_realized),
+                   survey_remaining = sum(survey_remaining)) %>% 
+  tidyr::pivot_longer(
+    c(survey_realized, survey_remaining),
+    names_to = "type",
+    values_to = "survey"
+  )
+
+renderValueBox({
+valueBox(sum(point_fait$survey_realized))
+})   
+
+```
+
+**Contacts**
+
+Si besoin, vous pouvez contacter :
+
+[pedro.philippe\@impact-initiatives.org](mailto:pedro.philippe@impact-initiatives.org){.email} ou [guillaume.noblet\@reach-initiative.org](mailto:guillaume.noblet@reach-initiative.org){.email}
+
+**Les onglets**
+
+PRECISER UNE FOIS TERMINE
+
+## Column
+
+### Nombre d'enquêtes par jour
+
+```{r}
+survey_per_date <- anon_data |> 
+  dplyr::group_by(today, date) |> 
+  dplyr::summarize(nb = dplyr::n())
+
+simplevis::gg_line(
+  survey_per_date,
+  x_var = today,
+  y_var = nb,
+  x_labels = scales::label_date(format = "%d %B"),
+  x_title = "Date",
+  y_title = "Nombre d'enquêtes"
+  )
+  
+
+```
+
+### Nombre d'enquêtes cumulées par jour
+
+```{r}
+survey_cum_per_date <- anon_data |> 
+  dplyr::group_by(today,date) |> 
+  dplyr::summarize(nb = dplyr::n()) |> 
+  dplyr::ungroup() |> 
+  dplyr::arrange(date) |> 
+  dplyr::mutate(cs = cumsum(nb))
+
+
+simplevis::gg_line(
+  survey_cum_per_date,
+  x_var = today,
+  y_var = cs,
+  x_labels = scales::label_date(format = "%d %B"),
+  x_title = "Date",
+  y_title = "Nombre d'enquêtes cumulées"
+  )
+```
+
+## Column
+
+### Suivi global de l'échantillon
+
+<!-- ```{r logo_map2, echo = F, out.width = '80%', fig.align="center"} -->
+
+<!-- knitr::include_graphics(here::here("data/pictures/reach_logo.png")) -->
+
+<!-- ``` -->
+
+```{r  echo = F, out.width = '80%', fig.align="center"}
+library(plotrix)
+slices <- c(sum(point_fait$survey_realized), sum(point_fait$survey_remaining))
+lbls <- c("", "")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie3D(slices,labels=lbls,explode=0.1,
+main="Présentation graphique de l'enquête réalisée",
+col = rainbow(length(slices)))
+legend("topright", c("Fait", " Non Fait"), cex = 0.8,
+   fill = rainbow(length(slices)))
+
+# Changer la couleur par groupes
+# Créer le barplot
+#ggplot(data=point_fait, aes(x=dept, y=survey_realized, fill=survey_etat)) +
+  #geom_bar(stat="identity")+
+  #geom_text(aes(y=survey_realized, label=survey_realized), vjust=1.6, 
+   #         color="white", size=4.5)+
+  #scale_fill_brewer(palette="Paired")+
+  #theme_minimal()
+library(ggplot2)
+library(dplyr)
+library(simplevis)
+library(palmerpenguins)
+
+#plot_data <- point_fait %>% 
+ # group_by(dept, survey_etat) %>% 
+  #summarise(survey_realized = sum(survey_realized, na.rm = TRUE)) 
+
+gg_hbar_col(point_fait_pivot, 
+                 x_var = survey, 
+                 y_var = departement,
+                 col_var =type,
+                 col_na_rm = TRUE,
+                 stack = TRUE,
+            title ="Présentation graphique de l'enquête réalisée et non réalisé par département",
+                 width = 0.5)
+          
+
+```
+
+```{r  echo = F, out.width = '80%', fig.align="center"}
+# Data 
+#install.packages("ggplot2")
+#library(ggplot2)
+#departement <- factor(sample(c("ARTIBONITE", "CENTRE", "NIPPES", "OUEST", "NORD", "NORD EST", "NORD OUEST", #"SUD", "SUD-EST", "GRANDE ANSE"),
+ #             size = 50, replace = TRUE),
+  #            enquete_fait = c("ARTIBONITE", "CENTRE", "NIPPES", "OUEST", "NORD", "NORD EST", "NORD OUEST", #"SUD", "SUD-EST", "GRANDE ANSE"))
+#hours <- sample(1:4, size = 50, replace = TRUE)
+#statut <- sample(c("Cible", "Fait", "Non Fait"),
+ #              size = 50, replace = TRUE)
+
+#df <- data.frame(point_fait = enquete_cible, point_fait = enquete_fait, group = statut)
+#ggplot(point_fait, aes(point_fait = enquete_cible, fill = group)) + 
+ # geom_bar()
+
+```
+
+# Journal de nettoyage
+
+```{r, include = F}
+
+log_total <- log |> 
+  dplyr::group_by(why) |> 
+  dplyr::summarize(nb = dplyr::n())
+
+log_par_base <- log |> 
+  dplyr::group_by(why, i_base) |> 
+  dplyr::summarize(nb = dplyr::n())
+
+log_par_enqueteur <- log |> 
+  dplyr::group_by(why, i_enum_id) |> 
+  dplyr::summarize(nb = dplyr::n(), .groups = "keep")
+
+log_par_jour <- log |> 
+  dplyr::group_by(why, date) |> 
+  dplyr::summarize(nb = dplyr::n())
+
+reactable_log <- function(.tbl) {
+  reactable::reactable(
+    .tbl,
+    filterable = TRUE,
+    striped = TRUE,
+    highlight = TRUE,
+    bordered = TRUE,
+    columns = list(
+      nb = reactable::colDef(cell = reactablefmtr::color_tiles(.tbl, colors = visualizeR::cols_reach("white", "main_red")))
+      )
+    )
+}
+```
+
+## Column {.tabset}
+
+### Tableau des erreurs (total)
+
+Ce premier tableau présente le nombre d'erreurs du journal de suivi par type de vérification :
+
+```{r}
+reactable_log(log_total)
+```
+
+### Tableau des erreurs (par base)
+
+Ce premier tableau présente le nombre d'erreurs du journal de suivi par type de vérification et par base :
+
+```{r}
+reactable_log(log_par_base)
+```
+
+### Tableau des erreurs (par enquêteur)
+
+Ce premier tableau présente le nombre d'erreurs du journal de suivi par type de vérification et par enquêteur :
+
+```{r}
+reactable_log(log_par_enqueteur)
+```
+
+## Column
+
+### Test simplevis
+
+```{r}
+p <- ggplot2::ggplot(log_par_jour, ggplot2::aes(x = date, y = nb, fill = why)) + 
+  ggplot2::geom_area()
+
+plotly::ggplotly(p)
+```
+
+# Suivi géographique
+
+## Column {.sidebar data-width="350"}
+
+```{r departement, echo = F, out.width = '80%', fig.align="center"}
+#knitr::include_graphics("data/pictures/entretiens_zone.png")
+
+point_fait <- read.csv("data/suivi_2022.csv")
+
+
+#zmpap  <- zmpap  %>%
+  #mutate(hex_id = as.numeric(str_replace_all(zmpap$departement, ",", "")))
+
+selectInput('departem',
+           'choisis le departement',
+          choices = unique(point_fait$dept))
+point_fait_filterd <- reactive({
+ point_fait %>% 
+  filter(dept == input$departem) 
+})
+
+point_fait_filterd1 <- reactive({
+ point_fait %>% 
+  filter(dept == input$departem) 
+})
+point_fait_filterd2 <- reactive({
+ point_fait %>% 
+  filter(dept == input$departem) 
+})
+
+```
+
+### Nombre d'enquete par Departement à faire
+
+```{r}
+renderValueBox({
+valueBox(sum(point_fait_filterd()$survey_cible),
+          icon="fas fa-home")
+})
+```
+
+### Nombre d'enquete par Departement réalisée
+
+```{r}
+renderValueBox({
+valueBox(sum(point_fait_filterd1()$survey_realized),
+          icon="fas fa-home")
+})
+```
+
+### Nombre d'enquete par Departement Reste à faire
+
+```{r}
+renderValueBox({
+valueBox(sum(point_fait_filterd1()$survey_remaining),
+          icon="fas fa-home")
+  #valueBox(unique(point_fait_filterd2()$dept))
+  #dept_select<- "artibonite"
+# dept_select<- valueBox(unique(point_fait_filterd2()$dept))
+})
+```
+
+## Carte de suivi de l'échantillon
+```{r}
+
+#renderLeaflet({
+ # leaflet(point_fait_filterd() %>% 
+  #        dplyr::filter(survey_realized != 0))%>%
+#addTiles(data = getMapData(point_fait_filterd()))%>%
+ #addMarkers()
+  #})
+
+```
+
+```{r}
+sampling <- impactR::import_xlsx("data/hti2202_sampling_final.xlsx")
+
+# Coordonnées GPS des points clusters
+sampling_sf <- sampling |> 
+  dplyr::select(milieu, departement, commune, hex_id, survey, 
+                lon = long, 
+                lat = lat) |> 
+  tidyr::drop_na(lon, lat) |> 
+  sf::st_as_sf(
+    coords = c("lon", "lat"),
+    remove = F,
+    crs = "+proj=longlat +datum=WGS84 zone30N +ellps=WGS84 zone30N")
+
+# Produire les zones tampon de 600mètres puis de 500mètres autour de chaque point cluster
+buffer_1200 <- st_buffer(sampling_sf, dist = 1200)
+
+buffer_1000 <- st_buffer(sampling_sf, dist = 1000)
+
+
+
+
+# Data collected ----------------------------------------------------------
+
+#Coordonnées GPS des points réalisés
+#library(stringr)
+#point_fait_filterd()$departement %>% str_to_lower()
+#point_fait %>% 
+
+ #dept_select<- toString(valueBox(unique(point_fait_filterd2()$dept)))
+#dept_select<- toString(unique(point_fait_filterd2()$dept))
+ #gps_data_fil <- point_fait() %>% str_to_lower()
+#gps_data_fil <- filter(gps_data, i_admin2==point_fait_filterd()$dept)
+#dept_valeur<- "ouest"
+gps_data_sf <- gps_data |> 
+            #dplyr::filter(i_admin2==dept_select)|> 
+             dplyr::rename(lon = longitude, 
+            lat = latitude) |> 
+  tidyr::drop_na(lon, lat) |> 
+  sf::st_as_sf(
+    coords = c("lon", "lat"),
+    remove = F,
+    crs = "+proj=longlat +datum=WGS84 zone30N +ellps=WGS84 zone30N")
+
+
+tmap::tmap_options(basemaps = c(Topo = "OpenTopoMap", Imagery = "Esri.WorldImagery", OSM = "OpenStreetMap.Mapnik"))
+
+
+#Production de la carte interactive
+map <- tmap::tm_shape(buffer_1200, name = "Zone tampon_1000m") +
+  tmap::tm_polygons(col = "#ead8d7", interactive = FALSE, alpha = 0.2, border.col = "#ead8d7", border.alpha = 1, lwd = 5) +
+  tmap::tm_shape(buffer_1000, name = "Zone tampon_800m") +
+  tmap::tm_polygons(col = "#d1cddd", interactive = FALSE, alpha = 0.2, border.col = "#d1cddd", border.alpha = 1, lwd = 5) +
+  tmap::tm_shape(sampling_sf, name = "Echantillon") +
+  tmap::tm_dots(col = "#ece70b", id = "i_cluster", title = "Centroïde",
+                size = 0.1,
+                interactive = TRUE,
+                popup.vars = c(#"N°cluster :" = "cluster",
+                  "Nombre à enquêter :" = "survey",
+                  "Milieu :" = "milieu",
+                  "Commune :" = "commune")) +
+  tmap::tm_shape(gps_data_sf, name = "Points réalisés") +
+  tmap::tm_dots(#col = "date",#palette = rev(palette)
+    id = "i_cluster",
+    col = "#e24546",
+    #title = "Jour de collecte",
+    size = 0.1, 
+    interactive = TRUE,
+    popup.vars = c(
+      "UUID :" = "uuid",
+      "Jour :" = "date",
+      "N°cluster :" = "i_cluster",
+      "ID énumérateur :" = "i_enum_id",
+      "Base :" = "i_base",
+      "Longitude :" = "lon",
+      "Latitude :" = "lat")) +
+  tmap::tmap_options(max.categories = 40) +
+  tmap::tm_scale_bar() +
+  tmap::tmap_mode("view")
+map
+
+
+```
+
+# Quelques indicateurs
